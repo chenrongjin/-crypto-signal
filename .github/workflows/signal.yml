@@ -2,8 +2,8 @@ name: Daily Signal
 
 on:
   schedule:
-    - cron: "0 14 * * *"  # 每天晚上10点（新加坡时间）
-
+    - cron: "0 14 * * *"
+  workflow_dispatch:
 jobs:
   run:
     runs-on: ubuntu-latest
