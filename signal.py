@@ -30,7 +30,7 @@ def get_klines(symbol):
 
         data = r.json()
 
-        # OKX结构检查
+        # ❗ OKX必须判断code
 
         if data.get("code") != "0":
 
@@ -40,19 +40,25 @@ def get_klines(symbol):
 
         candles = data.get("data", [])
 
-        if len(candles) == 0:
+        if not candles:
 
-            print(symbol, "无数据")
+            print(symbol, "无数据返回")
 
             return None
 
-        df = pd.DataFrame(candles)
+        # 🔥 OKX返回是：最新在前，需要反转
 
-        # OKX字段：
+        candles = candles[::-1]
 
-        # [ts,o,h,l,c,vol,...]
+        df = pd.DataFrame(candles, columns=[
 
-        df["close"] = df[4].astype(float)
+            "ts","open","high","low","close","vol",
+
+            "_1","_2","_3","_4","_5","_6"
+
+        ])
+
+        df["close"] = df["close"].astype(float)
 
         time.sleep(0.3)
 
