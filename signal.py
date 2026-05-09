@@ -11,24 +11,61 @@ def send_wechat(msg):
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
 
 def get_klines(symbol):
+
+    url = "https://api.binance.com/api/v3/klines"
+
+    headers = {
+
+        "User-Agent": "Mozilla/5.0"
+
+    }
+
+    params = {
+
+        "symbol": symbol,
+
+        "interval": "1d",
+
+        "limit": 100
+
+    }
+
     try:
-        url = "https://api.binance.com/api/v3/klines"
-        r = requests.get(url, params={"symbol": symbol, "interval": "1d", "limit": 100}, timeout=10)
+
+        r = requests.get(url, params=params, headers=headers, timeout=10)
+
+        # 🔥 防止被拦截
+
+        if r.status_code != 200:
+
+            print(symbol, "HTTP错误:", r.status_code, r.text)
+
+            return None
+
         data = r.json()
 
         if not isinstance(data, list):
+
             print(symbol, "API异常:", data)
+
             return None
 
         df = pd.DataFrame(data, columns=[
+
             "t","o","h","l","c","v","1","2","3","4","5","6"
+
         ])
 
         df["c"] = df["c"].astype(float)
+
+        time.sleep(0.3)  # 🔥 防止被限流
+
         return df
 
     except Exception as e:
+
         print(symbol, "请求失败:", e)
+
         return None
 
 
