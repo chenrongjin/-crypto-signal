@@ -2,7 +2,7 @@ name: MA60 Signal Bot
 
 on:
   schedule:
-    - cron: "*/1 * * * *"   # ✔ 每10分钟运行一次
+    - cron: "*/10 * * * *"   # ✔ 每10分钟运行一次
   workflow_dispatch:         # ✔ 保留手动（可选，不影响）
 
 jobs:
