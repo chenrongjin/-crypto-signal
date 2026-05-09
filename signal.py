@@ -1,82 +1,79 @@
 import requests
 import pandas as pd
+import time
 
+# ===== 微信推送 =====
 SEND_KEY = "SCT347411T9Z2D0Taq18lndnZQ0vGUjqgw"
 
 def send_wechat(msg):
-    url = f"https://sctapi.ftqq.com/{SEND_KEY}.send"
-    requests.post(url, data={"title": "信号", "desp": msg})
+    try:
+        url = f"https://sctapi.ftqq.com/{SEND_KEY}.send"
+        requests.post(url, data={
+            "title": "每日交易信号",
+            "desp": msg
+        }, timeout=10)
+    except Exception as e:
+        print("微信发送失败:", e)
 
 
+# ===== 币种 =====
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
 
+
+# ===== OKX获取K线 =====
 def get_klines(symbol):
-
-    url = "https://www.okx.com/api/v5/market/candles"
-
-    params = {
-
-        "instId": symbol.replace("USDT", "-USDT"),
-
-        "bar": "1D",
-
-        "limit": "100"
-
-    }
-
     try:
+        url = "https://www.okx.com/api/v5/market/candles"
 
-        r = requests.get(url, params=params, timeout=10)
+        instId = symbol.replace("USDT", "-USDT")
 
+        params = {
+            "instId": instId,
+            "bar": "1D",
+            "limit": "100"
+        }
+
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+
+        r = requests.get(url, params=params, headers=headers, timeout=10)
         data = r.json()
 
-        # ❗ OKX必须判断code
-
         if data.get("code") != "0":
-
             print(symbol, "API错误:", data)
-
             return None
 
         candles = data.get("data", [])
-
         if not candles:
-
-            print(symbol, "无数据返回")
-
+            print(symbol, "无数据")
             return None
-
-        # 🔥 OKX返回是：最新在前，需要反转
 
         candles = candles[::-1]
 
-        df = pd.DataFrame(candles, columns=[
-
-            "ts","open","high","low","close","vol",
-
-            "_1","_2","_3","_4","_5","_6"
-
-        ])
+        df = pd.DataFrame(candles)
+        df = df.iloc[:, :5]
+        df.columns = ["ts", "open", "high", "low", "close"]
 
         df["close"] = df["close"].astype(float)
 
-        time.sleep(0.3)
+        time.sleep(0.2)
 
         return df
 
     except Exception as e:
-
         print(symbol, "请求失败:", e)
-
         return None
 
 
-def ma60(series):
-    if len(series) < 60:
+# ===== MA60 =====
+def ma60(df):
+    if df is None or len(df) < 60:
         return None
-    return series.rolling(60).mean().iloc[-1]
+    return df["close"].rolling(60).mean().iloc[-1]
 
 
+# ===== 主逻辑 =====
 results = []
 
 for s in SYMBOLS:
@@ -85,27 +82,51 @@ for s in SYMBOLS:
     if df is None:
         continue
 
-    price = df["c"].iloc[-1]
-    ma = ma60(df["c"])
+    price = df["close"].iloc[-1]
+    ma = ma60(df)
 
     if ma is None:
-        print(s, "数据不足60天")
+        print(s, "数据不足60根K线")
         continue
 
     dev = (price - ma) / ma
 
-    results.append((s, dev))
+    results.append({
+        "symbol": s,
+        "price": price,
+        "ma": ma,
+        "dev": dev,
+        "abs": abs(dev)
+    })
 
 
-# 🧠 fallback（关键修复）
+# ===== 防崩处理 =====
 if len(results) == 0:
-    msg = "API未返回有效数据（请检查Binance访问）"
+    msg = "⚠️ 没有获取到有效数据"
     print(msg)
     send_wechat(msg)
 
 else:
-    best = min(results, key=lambda x: abs(x[1]))
+    results = sorted(results, key=lambda x: x["abs"])
+    best = results[0]
 
-    msg = f"推荐币种：{best[0]}\n偏差：{round(best[1]*100,2)}%"
-    print(msg)
+    msg = "📊 MA60交易信号\n\n"
+
+    print("\n📊 MA60分析结果\n")
+
+    for r in results:
+        line = (
+            f"{r['symbol']} | "
+            f"价格:{r['price']:.2f} | "
+            f"MA60:{r['ma']:.2f} | "
+            f"偏差:{r['dev']*100:.2f}%"
+        )
+        print(line)
+        msg += line + "\n"
+
+    msg += f"\n🔥 推荐买入：{best['symbol']}\n"
+    msg += f"偏差最小：{best['dev']*100:.2f}%"
+
+    print("\n" + msg)
+
     send_wechat(msg)
