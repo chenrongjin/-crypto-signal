@@ -1,9 +1,10 @@
 import requests
 import pandas as pd
 import time
+import os
 
 # ===== 微信推送 =====
-SEND_KEY = "SCT347411T9Z2D0Taq18lndnZQ0vGUjqgw"
+SEND_KEY = os.getenv("SEND_KEY")
 
 def send_wechat(msg):
     try:
