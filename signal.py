@@ -1,6 +1,17 @@
 import requests
 import pandas as pd
+import requests
 
+SEND_KEY = "SCT347411T9Z2D0Taq18lndnZQ0vGUjqgw"
+
+def send_wechat(msg):
+    url = f"https://sctapi.ftqq.com/{SEND_KEY}.send"
+    data = {
+        "title": "每日交易信号",
+        "desp": msg
+    }
+    requests.post(url, data=data)
+    
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
 
 def get_klines(symbol):
@@ -72,3 +83,6 @@ else:
 
     print("\n🔥 推荐:")
     print(best["symbol"])
+
+msg = f"推荐币种：{best['symbol']}\n偏差：{round(best['dev']*100,2)}%"
+send_wechat(msg)
