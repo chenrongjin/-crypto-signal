@@ -4,15 +4,8 @@ import pandas as pd
 SEND_KEY = "SCT347411T9Z2D0Taq18lndnZQ0vGUjqgw"
 
 def send_wechat(msg):
-    try:
-        url = f"https://sctapi.ftqq.com/{SEND_KEY}.send"
-        data = {
-            "title": "每日交易信号",
-            "desp": msg
-        }
-        requests.post(url, data=data, timeout=10)
-    except Exception as e:
-        print("微信发送失败:", e)
+    url = f"https://sctapi.ftqq.com/{SEND_KEY}.send"
+    requests.post(url, data={"title": "信号", "desp": msg})
 
 
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
@@ -20,16 +13,18 @@ SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
 def get_klines(symbol):
     try:
         url = "https://api.binance.com/api/v3/klines"
-        params = {"symbol": symbol, "interval": "1d", "limit": 100}
-
-        data = requests.get(url, params=params, timeout=10).json()
+        r = requests.get(url, params={"symbol": symbol, "interval": "1d", "limit": 100}, timeout=10)
+        data = r.json()
 
         if not isinstance(data, list):
-            print(symbol, "API error:", data)
+            print(symbol, "API异常:", data)
             return None
 
-        df = pd.DataFrame(data)
-        df["close"] = df[4].astype(float)
+        df = pd.DataFrame(data, columns=[
+            "t","o","h","l","c","v","1","2","3","4","5","6"
+        ])
+
+        df["c"] = df["c"].astype(float)
         return df
 
     except Exception as e:
@@ -37,10 +32,10 @@ def get_klines(symbol):
         return None
 
 
-def ma60(df):
-    if df is None or len(df) < 60:
+def ma60(series):
+    if len(series) < 60:
         return None
-    return df["close"].rolling(60).mean().iloc[-1]
+    return series.rolling(60).mean().iloc[-1]
 
 
 results = []
@@ -51,40 +46,27 @@ for s in SYMBOLS:
     if df is None:
         continue
 
-    price = df["close"].iloc[-1]
-    ma = ma60(df)
+    price = df["c"].iloc[-1]
+    ma = ma60(df["c"])
 
     if ma is None:
-        print(s, "数据不足60根")
+        print(s, "数据不足60天")
         continue
 
     dev = (price - ma) / ma
 
-    results.append({
-        "symbol": s,
-        "price": price,
-        "ma": ma,
-        "dev": dev,
-        "abs": abs(dev)
-    })
+    results.append((s, dev))
 
-# ❗关键：防止空数据崩溃
+
+# 🧠 fallback（关键修复）
 if len(results) == 0:
-    msg = "没有有效数据，无法生成信号"
+    msg = "API未返回有效数据（请检查Binance访问）"
     print(msg)
     send_wechat(msg)
 
 else:
-    best = sorted(results, key=lambda x: x["abs"])[0]
+    best = min(results, key=lambda x: abs(x[1]))
 
-    print("\n📊 MA60偏差分析\n")
-
-    for r in results:
-        print(f"{r['symbol']} | 价格:{r['price']:.2f} | MA60:{r['ma']:.2f} | 偏差:{r['dev']*100:.2f}%")
-
-    msg = f"推荐币种：{best['symbol']}\n偏差：{round(best['dev']*100,2)}%"
-
-    print("\n🔥 推送内容:")
+    msg = f"推荐币种：{best[0]}\n偏差：{round(best[1]*100,2)}%"
     print(msg)
-
     send_wechat(msg)
