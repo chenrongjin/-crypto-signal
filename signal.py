@@ -12,53 +12,49 @@ SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
 
 def get_klines(symbol):
 
-    url = "https://api.binance.com/api/v3/klines"
-
-    headers = {
-
-        "User-Agent": "Mozilla/5.0"
-
-    }
+    url = "https://www.okx.com/api/v5/market/candles"
 
     params = {
 
-        "symbol": symbol,
+        "instId": symbol.replace("USDT", "-USDT"),
 
-        "interval": "1d",
+        "bar": "1D",
 
-        "limit": 100
+        "limit": "100"
 
     }
 
     try:
 
-        r = requests.get(url, params=params, headers=headers, timeout=10)
-
-        # 🔥 防止被拦截
-
-        if r.status_code != 200:
-
-            print(symbol, "HTTP错误:", r.status_code, r.text)
-
-            return None
+        r = requests.get(url, params=params, timeout=10)
 
         data = r.json()
 
-        if not isinstance(data, list):
+        # OKX结构检查
 
-            print(symbol, "API异常:", data)
+        if data.get("code") != "0":
+
+            print(symbol, "API错误:", data)
 
             return None
 
-        df = pd.DataFrame(data, columns=[
+        candles = data.get("data", [])
 
-            "t","o","h","l","c","v","1","2","3","4","5","6"
+        if len(candles) == 0:
 
-        ])
+            print(symbol, "无数据")
 
-        df["c"] = df["c"].astype(float)
+            return None
 
-        time.sleep(0.3)  # 🔥 防止被限流
+        df = pd.DataFrame(candles)
+
+        # OKX字段：
+
+        # [ts,o,h,l,c,vol,...]
+
+        df["close"] = df[4].astype(float)
+
+        time.sleep(0.3)
 
         return df
 
