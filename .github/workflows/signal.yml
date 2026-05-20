@@ -2,7 +2,7 @@ name: MA60 Signal Bot
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "0 14 * * *"
   workflow_dispatch:
 
 jobs:
